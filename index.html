@@ -13,7 +13,8 @@
   input,select,button{padding:10px;border-radius:8px;border:1px solid #333;background:var(--card);color:#fff;font-size:16px;width:100%}
   button{background:var(--gold);color:#000;font-weight:bold;border:0;cursor:pointer}
   button.sec{background:#333;color:#fff}
-  .fila{display:flex;gap:6px;margin:4px 0}
+  .fila{display:flex;gap:6px;margin:4px 0;align-items:center}
+  .parche{white-space:nowrap;background:var(--card);border:1px solid #333;border-radius:8px;padding:10px 12px;color:var(--gold);font-weight:bold}
   .slots{display:flex;gap:6px;flex-wrap:wrap}
   .slot{width:52px;height:52px;border-radius:8px;background:var(--card);border:2px solid #333;
         display:flex;align-items:center;justify-content:center;font-size:11px;color:#777;cursor:pointer;overflow:hidden;position:relative}
@@ -21,12 +22,16 @@
   .slot.activo{border-color:var(--gold);box-shadow:0 0 6px var(--gold)}
   .ban img{filter:grayscale(1)}
   .ally{border-left:4px solid var(--azul)} .enemy{border-left:4px solid var(--rojo)}
+  #clases{display:flex;gap:6px;margin-top:10px}
+  #clases button{flex:1;padding:6px 0;font-size:22px;background:var(--card);color:#fff;border:2px solid #333;font-weight:normal}
+  #clases button.on{border-color:var(--gold);box-shadow:0 0 6px var(--gold)}
   #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px;max-height:300px;overflow-y:auto;
         background:#121a21;padding:8px;border-radius:8px;margin-top:6px}
   .champ{text-align:center;font-size:10px;cursor:pointer;line-height:1.1}
   .champ img{width:100%;border-radius:6px;display:block}
   .champ.usado{opacity:.25;pointer-events:none}
   #salida{white-space:pre-wrap;background:var(--card);padding:12px;border-radius:8px;margin-top:10px;min-height:40px}
+  #version{text-align:center;color:#666;font-size:12px;margin:18px 0 6px}
 </style>
 </head>
 <body>
@@ -40,7 +45,7 @@
   <select id="rol">
     <option>top</option><option>jungla</option><option>mid</option><option>adc</option><option>support</option>
   </select>
-  <input id="parche" placeholder="Parche (ej. 26.21)">
+  <div class="parche" id="parche">Parche ...</div>
 </div>
 
 <h3>Baneos</h3>
@@ -50,17 +55,9 @@
 <h3>Equipo enemigo</h3>
 <div class="slots" id="s-enemy"></div>
 
-<div class="fila" style="margin-top:10px">
+<div id="clases"></div>
+<div class="fila">
   <input id="buscar" placeholder="Buscar campeón...">
-  <select id="clase" style="max-width:150px">
-    <option value="">Todas las clases</option>
-    <option value="Fighter">Luchador</option>
-    <option value="Tank">Tanque</option>
-    <option value="Mage">Mago</option>
-    <option value="Assassin">Asesino</option>
-    <option value="Marksman">Tirador</option>
-    <option value="Support">Soporte</option>
-  </select>
 </div>
 <div id="grid">Cargando campeones...</div>
 
@@ -72,17 +69,47 @@
 <button class="sec" onclick="reiniciar()">Reiniciar draft</button>
 <div id="salida"></div>
 
+<div id="version"></div>
+
 <script>
+const APP_VERSION = "0.2";
 const API = "https://lolator-api.colloto-movil.workers.dev/";
 const NUM = { ban: 10, ally: 5, enemy: 5 };
 const estado = { ban: Array(10).fill(null), ally: Array(5).fill(null), enemy: Array(5).fill(null) };
+const CLASES = [
+  { tag: "", icono: "🌐", nombre: "Todos" },
+  { tag: "Fighter", icono: "⚔️", nombre: "Luchador" },
+  { tag: "Tank", icono: "🛡️", nombre: "Tanque" },
+  { tag: "Mage", icono: "🔮", nombre: "Mago" },
+  { tag: "Assassin", icono: "🗡️", nombre: "Asesino" },
+  { tag: "Marksman", icono: "🏹", nombre: "Tirador" },
+  { tag: "Support", icono: "💚", nombre: "Soporte" }
+];
 let activo = { g: "ally", i: 0 };
-let version = "", campeones = [];
+let version = "", campeones = [], claseSel = "";
 
-["nombre", "tag", "rol", "parche"].forEach(id => {
+document.getElementById("version").textContent = "LoLator v" + APP_VERSION;
+
+["nombre", "tag", "rol"].forEach(id => {
   const v = localStorage.getItem(id);
   if (v) document.getElementById(id).value = v;
 });
+
+function pintarClases() {
+  const cont = document.getElementById("clases");
+  cont.innerHTML = "";
+  CLASES.forEach(c => {
+    const b = document.createElement("button");
+    b.textContent = c.icono;
+    b.title = c.nombre;
+    b.className = c.tag === claseSel ? "on" : "";
+    b.onclick = () => {
+      claseSel = (claseSel === c.tag) ? "" : c.tag;
+      pintarClases(); pintarGrid();
+    };
+    cont.appendChild(b);
+  });
+}
 
 function pintarSlots() {
   for (const g of Object.keys(NUM)) {
@@ -117,12 +144,11 @@ function usados() {
 
 function pintarGrid() {
   const q = document.getElementById("buscar").value.trim().toLowerCase();
-  const clase = document.getElementById("clase").value;
   const u = usados();
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
   campeones
-    .filter(c => c.name.toLowerCase().includes(q) && (!clase || c.tags.includes(clase)))
+    .filter(c => c.name.toLowerCase().includes(q) && (!claseSel || c.tags.includes(claseSel)))
     .forEach(c => {
       const d = document.createElement("div");
       d.className = "champ" + (u.has(c.id) ? " usado" : "");
@@ -150,8 +176,7 @@ async function cargarCampeones() {
   try {
     const vs = await (await fetch("https://ddragon.leagueoflegends.com/api/versions.json")).json();
     version = vs[0];
-    const p = document.getElementById("parche");
-    if (!p.value) p.value = version.split(".").slice(0, 2).join(".");
+    document.getElementById("parche").textContent = "Parche " + version.split(".").slice(0, 2).join(".");
     const j = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/es_ES/champion.json`)).json();
     campeones = Object.values(j.data).sort((a, b) => a.name.localeCompare(b.name, "es"));
     pintarSlots(); pintarGrid();
@@ -163,8 +188,9 @@ async function cargarCampeones() {
 const nombres = g => estado[g].filter(Boolean).map(c => c.name).join(", ") || "ninguno";
 
 async function ir(modo) {
-  const datos = { modo, aliados: nombres("ally"), enemigos: nombres("enemy"), bans: nombres("ban") };
-  ["nombre", "tag", "rol", "parche"].forEach(id => {
+  const parche = document.getElementById("parche").textContent.replace("Parche ", "");
+  const datos = { modo, parche, aliados: nombres("ally"), enemigos: nombres("enemy"), bans: nombres("ban") };
+  ["nombre", "tag", "rol"].forEach(id => {
     datos[id] = document.getElementById(id).value;
     localStorage.setItem(id, datos[id]);
   });
@@ -178,7 +204,7 @@ async function ir(modo) {
 }
 
 document.getElementById("buscar").addEventListener("input", pintarGrid);
-document.getElementById("clase").addEventListener("change", pintarGrid);
+pintarClases();
 pintarSlots();
 cargarCampeones();
 </script>
